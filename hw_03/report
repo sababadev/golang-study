@@ -1,0 +1,62 @@
+goos: linux
+kernel: arch 5.12.8
+goarch: amd64
+pkg: hw3
+cpu: Intel(R) Celeron(R) CPU 4205U @ 1.80GHz
+
+1. BEFORE REFACTORING
+
+      **********************************CPU*********************************************
+      flat  flat%   sum%        cum   cum%
+     310ms  7.79%  7.79%      390ms  9.80%  runtime.heapBitsSetType
+     270ms  6.78% 14.57%     1120ms 28.14%  runtime.mallocgc
+     150ms  3.77% 18.34%      150ms  3.77%  runtime.memmove
+     140ms  3.52% 21.86%      190ms  4.77%  runtime.findObject
+     140ms  3.52% 25.38%      690ms 17.34%  runtime.growslice
+     140ms  3.52% 28.89%      490ms 12.31%  runtime.scanobject
+     130ms  3.27% 32.16%      160ms  4.02%  encoding/json.(*decodeState).rescanLiteral
+     130ms  3.27% 35.43%      130ms  3.27%  encoding/json.stateInString
+     130ms  3.27% 38.69%      130ms  3.27%  runtime.pageIndexOf (inline)
+     120ms  3.02% 41.71%      120ms  3.02%  runtime.memclrNoHeapPointers
+
+     // самые большие расходы процесорного времени связаны с аллокацией на куче,
+     // декодингом и затратами на рост слайса при добавлении элементов в него...
+
+
+22: 40ms  - ioutil.ReadAll(file) read all file // будем использовать подход с лекции(буферизованое чтение)
+32: 50ms  - strings.Split  with "\n"           // можно заменить записью переноса строки байтами прямо в буфер
+62: 1.15s - regexp.MatchString in loop         // регулярные выражения заменим на ф-ии strings
+84: 810ms - regexp.MatchString in loop         // регулярные выражения заменим на ф-ии strings
+
+      **********************************MEMORY********************************************
+      flat  flat%   sum%        cum   cum%
+    144041 20.45% 20.45%     144041 20.45%  regexp/syntax.(*compiler).inst (inline)
+     96007 13.63% 34.07%      96007 13.63%  regexp/syntax.(*parser).newRegexp (inline)
+     64006  9.09% 43.16%     112006 15.90%  regexp/syntax.(*parser).push
+     48000  6.81% 49.97%      48000  6.81%  regexp/syntax.(*parser).maybeConcat
+     47405  6.73% 56.70%     512088 72.69%  regexp.compile
+     44339  6.29% 62.99%      44339  6.29%  encoding/json.(*decodeState).literalStore
+     32009  4.54% 67.54%     240022 34.07%  regexp/syntax.Parse
+     32005  4.54% 72.08%      32005  4.54%  regexp/syntax.(*Regexp).CapNames
+     32005  4.54% 76.62%      64011  9.09%  regexp/syntax.(*compiler).init (inline)
+     32000  4.54% 81.16%      32000  4.54%  reflect.New
+
+     // больше всего объектов распределяется при работе с регуряными выражениями и
+     // декодингом, заменим функциями пакета strings и использованием либы easyjson
+         
+36: 8000  - make(map[string]interface{}) creat for unmarshal in
+38: 181401  - json.Unmarshal([]byte(line), &user)  unmarshal with alloc buf every cycle
+62: 272081  -  regexp.MatchString  regexp in loop again
+84: 240030 -  regexp.MatchString  regexp in loop again
+105: 1422   - r.ReplaceAllString change @ to [at] with regexp
++  in line 72:  42:  94:  append to zero-cap, not prealloc slice. 
++  all fmt package fucn wait interface{} param it's add allocs 
+
+
+
+2. AFTER REFACTORING 
+
+BenchmarkSlow-2               24          50617908 ns/op        19367060 B/op     189779 allocs/op
+BenchmarkFast-2              378           2940899 ns/op          480199 B/op       6169 allocs/op
+
+
