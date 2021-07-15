@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -308,7 +307,6 @@ func TestBadRequest(t *testing.T) {
 func TestPaginateParams(t *testing.T) {
 	type TestCase struct {
 		req SearchRequest
-		res *SearchResponse
 		err error
 	}
 
@@ -327,12 +325,9 @@ func TestPaginateParams(t *testing.T) {
 	defer ts.Close()
 
 	for caseNum, item := range cases {
-		resp, err := ts.Client.FindUsers(item.req)
+		_, err := ts.Client.FindUsers(item.req)
 		if err.Error() != item.err.Error() {
 			t.Errorf("[%d] invalid error, expected %, got %v", caseNum, item.err, err)
-		}
-		if !reflect.DeepEqual(item.res, resp) {
-			t.Errorf("[%d] invalid result, expected %v, got %v", caseNum, item.res, resp)
 		}
 	}
 }
